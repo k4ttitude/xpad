@@ -131,6 +131,7 @@
 #define QUIRK_360_START_PKT_2	(1 << 1)
 #define QUIRK_360_START_PKT_3	(1 << 2)
 #define QUIRK_GHL_XBOXONE	(1 << 3)
+#define QUIRK_FLYDIGI_APEX5	(1 << 4)
 #define QUIRK_360_START (QUIRK_360_START_PKT_1 |			\
 				QUIRK_360_START_PKT_2 | QUIRK_360_START_PKT_3)
 
@@ -434,7 +435,7 @@ static const struct xpad_device {
 	{ 0x3285, 0x0663, "Nacon Evol-X", 0, XTYPE_XBOXONE },
 	{ 0x3537, 0x1004, "GameSir T4 Kaleid", 0, XTYPE_XBOX360 },
 	{ 0x3767, 0x0101, "Fanatec Speedster 3 Forceshock Wheel", 0, XTYPE_XBOX },
-	{ 0x37d7, 0x2501, "Flydigi APEX5", 0, XTYPE_XBOXONE },
+	{ 0x37d7, 0x2501, "Flydigi APEX5", 0, XTYPE_XBOXONE, QUIRK_FLYDIGI_APEX5 },
 	{ 0x413d, 0x2104, "Black Shark Green Ghost Gamepad", 0, XTYPE_XBOX360 },
 	{ 0xffff, 0xffff, "Chinese-made Xbox Controller", 0, XTYPE_XBOX },
 	{ 0x0000, 0x0000, "Generic X-Box pad", 0, XTYPE_UNKNOWN }
@@ -1234,10 +1235,23 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
 			input_report_key(dev, BTN_TR2,
 					(__u16) le16_to_cpup((__le16 *)(data + 8)));
 		} else {
-			input_report_abs(dev, ABS_Z,
-					(__u16) le16_to_cpup((__le16 *)(data + 6)));
-			input_report_abs(dev, ABS_RZ,
-					(__u16) le16_to_cpup((__le16 *)(data + 8)));
+			if (xpad->quirks & QUIRK_FLYDIGI_APEX5) {
+				/* Flydigi Apex 5 sends trigger data in signed format that needs conversion */
+				__s16 left_trigger = (__s16) le16_to_cpup((__le16 *)(data + 6));
+				__s16 right_trigger = (__s16) le16_to_cpup((__le16 *)(data + 8));
+				
+				/* Convert from signed range to 0-1023 range */
+				left_trigger = (left_trigger < 0) ? 0 : (left_trigger > 1023) ? 1023 : left_trigger;
+				right_trigger = (right_trigger < 0) ? 0 : (right_trigger > 1023) ? 1023 : right_trigger;
+				
+				input_report_abs(dev, ABS_Z, left_trigger);
+				input_report_abs(dev, ABS_RZ, right_trigger);
+			} else {
+				input_report_abs(dev, ABS_Z,
+						(__u16) le16_to_cpup((__le16 *)(data + 6)));
+				input_report_abs(dev, ABS_RZ,
+						(__u16) le16_to_cpup((__le16 *)(data + 8)));
+			}
 		}
 
 		/* Profile button has a value of 0-3, so it is reported as an axis */
@@ -2175,6 +2189,11 @@ static void xpad_set_up_abs(struct input_dev *input_dev, signed short abs)
 		/* GHL Tilt sensor */
 		if ((xpad->xtype == XTYPE_XBOXONE) && (xpad->quirks & QUIRK_GHL_XBOXONE)) {
 			input_set_abs_params(input_dev, abs, -32767, 32767, 0, 0);
+			break;
+		}
+		/* Flydigi Apex 5 left trigger */
+		if ((xpad->xtype == XTYPE_XBOXONE) && (xpad->quirks & QUIRK_FLYDIGI_APEX5)) {
+			input_set_abs_params(input_dev, abs, 0, 1023, 0, 0);
 			break;
 		}
 	case ABS_RZ:	/* the triggers (if mapped to axes) */
