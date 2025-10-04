@@ -131,6 +131,7 @@
 #define QUIRK_360_START_PKT_2	(1 << 1)
 #define QUIRK_360_START_PKT_3	(1 << 2)
 #define QUIRK_GHL_XBOXONE	(1 << 3)
+#define QUIRK_FLYDIGI_APEX5	(1 << 4)
 #define QUIRK_360_START (QUIRK_360_START_PKT_1 |			\
 				QUIRK_360_START_PKT_2 | QUIRK_360_START_PKT_3)
 
@@ -434,7 +435,7 @@ static const struct xpad_device {
 	{ 0x3285, 0x0663, "Nacon Evol-X", 0, XTYPE_XBOXONE },
 	{ 0x3537, 0x1004, "GameSir T4 Kaleid", 0, XTYPE_XBOX360 },
 	{ 0x3767, 0x0101, "Fanatec Speedster 3 Forceshock Wheel", 0, XTYPE_XBOX },
-	{ 0x37d7, 0x2501, "Flydigi APEX5", 0, XTYPE_XBOX360 },
+	{ 0x37d7, 0x2501, "Flydigi APEX5", 0, XTYPE_XBOX360, QUIRK_FLYDIGI_APEX5 },
 	{ 0x413d, 0x2104, "Black Shark Green Ghost Gamepad", 0, XTYPE_XBOX360 },
 	{ 0xffff, 0xffff, "Chinese-made Xbox Controller", 0, XTYPE_XBOX },
 	{ 0x0000, 0x0000, "Generic X-Box pad", 0, XTYPE_UNKNOWN }
@@ -595,7 +596,7 @@ static const struct usb_device_id xpad_table[] = {
 	XPAD_XBOXONE_VENDOR(0x3285),		/* Nacon Evol-X */
 	XPAD_XBOX360_VENDOR(0x3537),		/* GameSir Controllers */
 	XPAD_XBOXONE_VENDOR(0x3537),		/* GameSir Controllers */
-	XPAD_XBOX360_VENDOR(0x37d7),		/* Flydigi Apex 5 Controllers */
+  XPAD_XBOX360_VENDOR(0x37d7),		/* Flydigi Apex 5 Controllers */
 	XPAD_XBOX360_VENDOR(0x413d),		/* Black Shark Green Ghost Controller */
 	{ }
 };
@@ -1033,8 +1034,14 @@ static void xpad360_process_packet(struct usb_xpad *xpad, struct input_dev *dev,
 		input_report_key(dev, BTN_TL2, data[4]);
 		input_report_key(dev, BTN_TR2, data[5]);
 	} else {
-		input_report_abs(dev, ABS_Z, data[4]);
-		input_report_abs(dev, ABS_RZ, data[5]);
+    printk(KERN_INFO "APEX5: Right trigger raw=%d, Right trigger processed=%d\n", data[5], (data[5] + 256) / 2);
+    if (xpad->quirks & QUIRK_FLYDIGI_APEX5) {
+      input_report_abs(dev, ABS_Z, (data[4] + 256) / 2);
+      input_report_abs(dev, ABS_RZ, (data[5] + 256) / 2);
+    } else {
+      input_report_abs(dev, ABS_Z, data[4]);
+      input_report_abs(dev, ABS_RZ, data[5]);
+    }
 	}
 
 	input_sync(dev);
@@ -1230,9 +1237,9 @@ static void xpadone_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned char
 		/* triggers left/right */
 		if (xpad->mapping & MAP_TRIGGERS_TO_BUTTONS) {
 			input_report_key(dev, BTN_TL2,
-					(__u16) le16_to_cpup((__le16 *)(data + 6)));
+				(__u16) le16_to_cpup((__le16 *)(data + 6)));
 			input_report_key(dev, BTN_TR2,
-					(__u16) le16_to_cpup((__le16 *)(data + 8)));
+				(__u16) le16_to_cpup((__le16 *)(data + 8)));
 		} else {
 			input_report_abs(dev, ABS_Z,
 					(__u16) le16_to_cpup((__le16 *)(data + 6)));
