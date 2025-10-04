@@ -595,7 +595,7 @@ static const struct usb_device_id xpad_table[] = {
 	XPAD_XBOXONE_VENDOR(0x3285),		/* Nacon Evol-X */
 	XPAD_XBOX360_VENDOR(0x3537),		/* GameSir Controllers */
 	XPAD_XBOXONE_VENDOR(0x3537),		/* GameSir Controllers */
-	XPAD_XBOX360_VENDOR(0x37d7),		/* Flydigi Apex 5 Controllers */
+  { USB_DEVICE(0x37d7, 0x2501), .driver_info = XTYPE_XBOX360 },	 	/* Flydigi Apex 5 Controllers */
 	XPAD_XBOX360_VENDOR(0x413d),		/* Black Shark Green Ghost Controller */
 	{ }
 };
